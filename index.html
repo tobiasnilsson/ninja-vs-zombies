@@ -162,11 +162,11 @@
             <button onclick="startGame()">Start Game</button>
         </div>
 
-        <div id="gameOver" class="hidden">
-            <h1 style="color: #c44;">Game Over</h1>
-            <p>The zombies got you on level <span id="deathLevel">1</span>!</p>
-            <button onclick="retryLevel()">Retry Level</button>
-            <button onclick="startGame()" style="background: linear-gradient(to bottom, #666, #444);">Restart Game</button>
+        <div id="gameOver" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 8px;">
+            <h1 style="color: #c44; font-size: 48px; margin-bottom: 20px; text-shadow: 3px 3px 6px rgba(0,0,0,0.8);">Game Over</h1>
+            <p style="font-size: 18px; margin-bottom: 30px; color: #aaa;">The zombies got you on level <span id="deathLevel">1</span>!</p>
+            <button onclick="retryLevel()" style="padding: 15px 40px; font-size: 20px; background: linear-gradient(to bottom, #c44, #922); border: none; border-radius: 8px; color: white; cursor: pointer; margin: 5px;">Retry Level</button>
+            <button onclick="startGame()" style="padding: 15px 40px; font-size: 20px; background: linear-gradient(to bottom, #666, #444); border: none; border-radius: 8px; color: white; cursor: pointer; margin: 5px;">Restart Game</button>
         </div>
 
         <div id="victory" class="hidden">
@@ -717,10 +717,11 @@
                 // Screen bounds
                 if (this.x < 0) this.x = 0;
                 if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
-                if (this.y + this.height > canvas.height) {
-                    this.y = canvas.height - this.height;
-                    this.vy = 0;
-                    this.grounded = true;
+
+                // Fall death - die when falling into a pit
+                if (this.y > canvas.height + 50) {
+                    this.hp = 0;
+                    gameOver(false);
                 }
 
                 // Timers
