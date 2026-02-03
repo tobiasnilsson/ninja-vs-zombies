@@ -151,7 +151,7 @@
             <div id="healthBar"><div id="healthFill" style="width: 100%"></div></div>
             <div id="stats">Level: <span id="levelNum">1</span> | HP: <span id="hp">5</span>/5 | Zombies: <span id="zombieCount">0</span></div>
         </div>
-        <div id="controls">A/D or Arrows: Move | Space: Jump | Click or F: Throw Shuriken</div>
+        <div id="controls">A/D or Arrows: Move | Space: Jump | Click, F or Ctrl: Throw Shuriken</div>
         <div id="musicControl">
             <label>🎵 <input type="range" id="volumeSlider" min="0" max="100" value="30" onchange="Music.setVolume(this.value/100)"></label>
         </div>
@@ -678,7 +678,7 @@
                 }
 
                 // Throw shuriken
-                if ((keys['KeyF'] || mouseDown) && this.throwCooldown <= 0) {
+                if ((keys['KeyF'] || keys['ControlLeft'] || keys['ControlRight'] || mouseDown) && this.throwCooldown <= 0) {
                     this.throwShuriken();
                     this.throwCooldown = 15;
                 }
