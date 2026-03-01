@@ -504,6 +504,64 @@ const SFX = {
 
         osc.start(audioCtx.currentTime);
         osc.stop(audioCtx.currentTime + 0.15);
+    },
+
+    bossLand: () => {
+        if (!audioCtx) return;
+        // Deep rumbling impact sound
+        const osc = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+
+        osc.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = 'sine';
+        osc2.type = 'triangle';
+        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.5);
+        osc2.frequency.setValueAtTime(60, audioCtx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.5);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(200, audioCtx.currentTime);
+
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+        osc.start(audioCtx.currentTime);
+        osc2.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.5);
+        osc2.stop(audioCtx.currentTime + 0.5);
+
+        // Add some noise for impact
+        const bufferSize = audioCtx.sampleRate * 0.2;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+        }
+
+        const noise = audioCtx.createBufferSource();
+        const noiseGain = audioCtx.createGain();
+        const noiseFilter = audioCtx.createBiquadFilter();
+
+        noise.buffer = buffer;
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.setValueAtTime(500, audioCtx.currentTime);
+
+        noiseGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+        noise.start(audioCtx.currentTime);
+        noise.stop(audioCtx.currentTime + 0.2);
     }
 };
 
@@ -1129,7 +1187,7 @@ class GiantZombieBoss {
                                 '#8B4513'
                             ));
                         }
-                        SFX.hit();
+                        SFX.bossLand();
                     }
                 }
             }
@@ -1147,7 +1205,7 @@ class GiantZombieBoss {
                         '#8B4513'
                     ));
                 }
-                SFX.hit();
+                SFX.bossLand();
             }
             return;
         }
@@ -1372,8 +1430,8 @@ class SpiderBoss {
         this.vx = 0;
         this.vy = 0;
         this.speed = 3;
-        this.hp = 5; // 5 jumps needed
-        this.maxHp = 5;
+        this.hp = 10;
+        this.maxHp = 10;
         this.facingRight = true;
         this.attackCooldown = 0;
         this.grounded = false;
@@ -1381,10 +1439,61 @@ class SpiderBoss {
         this.stunned = false;
         this.stunnedTimer = 0;
         this.isBoss = true;
+        this.spawning = true;
+        this.hasLanded = false;
     }
 
     update() {
         this.legAnimation += 0.15;
+
+        // Spawning - fall from sky
+        if (this.spawning) {
+            this.vy += GRAVITY;
+            this.y += this.vy;
+
+            // Check if landed
+            for (let plat of platforms) {
+                if (this.collidesWith(plat)) {
+                    if (this.vy > 0 && this.y + this.height - this.vy <= plat.y + 5) {
+                        this.y = plat.y - this.height;
+                        this.vy = 0;
+                        this.grounded = true;
+                        this.spawning = false;
+                        if (!this.hasLanded) {
+                            this.hasLanded = true;
+                            SFX.bossLand();
+                            for (let i = 0; i < 20; i++) {
+                                particles.push(new Particle(
+                                    this.x + Math.random() * this.width,
+                                    this.y + this.height,
+                                    '#2a2a2a'
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Ground collision
+            if (this.y + this.height > canvas.height - 100) {
+                this.y = canvas.height - 100 - this.height;
+                this.vy = 0;
+                this.grounded = true;
+                this.spawning = false;
+                if (!this.hasLanded) {
+                    this.hasLanded = true;
+                    SFX.bossLand();
+                    for (let i = 0; i < 20; i++) {
+                        particles.push(new Particle(
+                            this.x + Math.random() * this.width,
+                            this.y + this.height,
+                            '#2a2a2a'
+                        ));
+                    }
+                }
+            }
+            return;
+        }
 
         // If stunned, don't move
         if (this.stunned) {
@@ -1619,20 +1728,68 @@ class OctopusBoss {
         this.vx = 0;
         this.vy = 0;
         this.speed = 2.5;
-        this.hp = 8;
-        this.maxHp = 8;
+        this.hp = 10;
+        this.maxHp = 10;
         this.facingRight = true;
         this.attackCooldown = 0;
         this.tentacleAnimation = 0;
-        this.state = 'walking'; // 'walking', 'climbing', 'jumping'
+        this.state = 'spawning'; // 'spawning', 'walking', 'climbing', 'jumping'
         this.clingingPlatform = null;
         this.jumpCooldown = 0;
         this.targetPlatform = null;
         this.isBoss = true;
+        this.hasLanded = false;
     }
 
     update() {
         this.tentacleAnimation += 0.1;
+
+        // Spawning - fall from sky
+        if (this.state === 'spawning') {
+            this.vy += GRAVITY;
+            this.y += this.vy;
+
+            // Check if landed
+            for (let plat of platforms) {
+                if (this.collidesWith(plat)) {
+                    if (this.vy > 0 && this.y + this.height - this.vy <= plat.y + 5) {
+                        this.y = plat.y - this.height;
+                        this.vy = 0;
+                        this.state = 'walking';
+                        if (!this.hasLanded) {
+                            this.hasLanded = true;
+                            SFX.bossLand();
+                            for (let i = 0; i < 20; i++) {
+                                particles.push(new Particle(
+                                    this.x + Math.random() * this.width,
+                                    this.y + this.height,
+                                    '#6a2c8a'
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Ground collision
+            if (this.y + this.height > canvas.height - 100) {
+                this.y = canvas.height - 100 - this.height;
+                this.vy = 0;
+                this.state = 'walking';
+                if (!this.hasLanded) {
+                    this.hasLanded = true;
+                    SFX.bossLand();
+                    for (let i = 0; i < 20; i++) {
+                        particles.push(new Particle(
+                            this.x + Math.random() * this.width,
+                            this.y + this.height,
+                            '#6a2c8a'
+                        ));
+                    }
+                }
+            }
+            return;
+        }
 
         if (this.state === 'climbing') {
             this.updateClimbing();
@@ -2474,7 +2631,7 @@ const levels = {
             { x: 900, y: 610 },
             { x: 1350, y: 260 },
         ],
-        boss: { type: 'giant', x: 900, y: -150 }
+        boss: { type: 'spider', x: 900, y: -150 }
     },
     6: {
         platforms: [
@@ -2678,7 +2835,7 @@ const levels = {
         secretBlocks: [
             { x: 1000, y: 780 }
         ],
-        boss: { type: 'giant', x: 900, y: -150 }
+        boss: { type: 'octopus', x: 900, y: -150 }
     }
 };
 
@@ -2722,6 +2879,10 @@ function initGame() {
     if (level.boss) {
         if (level.boss.type === 'giant') {
             zombies.push(new GiantZombieBoss(level.boss.x, level.boss.y));
+        } else if (level.boss.type === 'spider') {
+            zombies.push(new SpiderBoss(level.boss.x, level.boss.y));
+        } else if (level.boss.type === 'octopus') {
+            zombies.push(new OctopusBoss(level.boss.x, level.boss.y));
         }
     }
 
