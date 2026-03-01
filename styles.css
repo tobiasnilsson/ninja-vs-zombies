@@ -1,0 +1,477 @@
+/* Reset styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Prevent touch callouts and selection on iOS */
+html {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+/* Body styles */
+body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Game container styles */
+#gameContainer {
+    position: relative;
+}
+
+/* Canvas styles */
+canvas {
+    border: 3px solid #4a4a6a;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+}
+
+/* UI overlay with health bar, stats */
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 16px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}
+
+/* Health bar styles */
+#healthBar {
+    width: 150px;
+    height: 20px;
+    background: #333;
+    border: 2px solid #666;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+#healthFill {
+    height: 100%;
+    background: linear-gradient(to bottom, #4f4, #2a2);
+    transition: width 0.2s;
+}
+
+/* Overlay styles */
+#overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    border-radius: 8px;
+}
+
+/* Overlay heading styles */
+#overlay h1 {
+    font-size: 48px;
+    margin-bottom: 20px;
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+}
+
+#overlay p {
+    font-size: 18px;
+    margin-bottom: 30px;
+    color: #aaa;
+}
+
+/* Overlay button styles */
+#overlay button {
+    padding: 15px 40px;
+    font-size: 20px;
+    background: linear-gradient(to bottom, #c44, #922);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    margin: 5px;
+    transition: transform 0.1s;
+}
+
+#overlay button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(to bottom, #d55, #a33);
+}
+
+/* Hidden class */
+.hidden {
+    display: none !important;
+}
+
+/* Level complete screen styles */
+#levelComplete {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    border-radius: 8px;
+}
+
+#levelComplete h1 {
+    font-size: 42px;
+    margin-bottom: 20px;
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+}
+
+#levelComplete p {
+    font-size: 18px;
+    margin-bottom: 30px;
+    color: #aaa;
+}
+
+/* Level complete button styles (green button) */
+#levelComplete button {
+    padding: 15px 40px;
+    font-size: 20px;
+    background: linear-gradient(to bottom, #4a4, #282);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    margin: 5px;
+    transition: transform 0.1s;
+}
+
+#levelComplete button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(to bottom, #5b5, #393);
+}
+
+/* Controls display */
+#controls {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    color: #888;
+    font-size: 12px;
+}
+
+/* Music control */
+#musicControl {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    color: #888;
+    font-size: 14px;
+}
+
+#volumeSlider {
+    width: 80px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+/* Game over screen styles */
+#gameOver {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+}
+
+#gameOver h1 {
+    color: #c44;
+    font-size: 48px;
+    margin-bottom: 20px;
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+}
+
+#gameOver p {
+    font-size: 18px;
+    margin-bottom: 30px;
+    color: #aaa;
+}
+
+#gameOver button {
+    padding: 15px 40px;
+    font-size: 20px;
+    background: linear-gradient(to bottom, #c44, #922);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    margin: 5px;
+    transition: transform 0.1s;
+}
+
+#gameOver button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(to bottom, #d55, #a33);
+}
+
+#gameOver button:last-child {
+    background: linear-gradient(to bottom, #666, #444);
+}
+
+#gameOver button:last-child:hover {
+    background: linear-gradient(to bottom, #777, #555);
+}
+
+/* Victory screen styles */
+#victory {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    border-radius: 8px;
+}
+
+#victory h1 {
+    color: #4c4;
+    font-size: 48px;
+    margin-bottom: 20px;
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+}
+
+#victory p {
+    font-size: 18px;
+    margin-bottom: 30px;
+    color: #aaa;
+}
+
+#victory button {
+    padding: 15px 40px;
+    font-size: 20px;
+    background: linear-gradient(to bottom, #4a4, #282);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    margin: 5px;
+    transition: transform 0.1s;
+}
+
+#victory button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(to bottom, #5b5, #393);
+}
+
+/* Touch Controls for Mobile/iPad */
+#touchControls {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 180px;
+    pointer-events: none;
+    z-index: 100;
+}
+
+#touchLeft {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+#touchRight {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    display: flex;
+    gap: 15px;
+    pointer-events: auto;
+}
+
+.touchBtn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.5);
+    background: rgba(0,0,0,0.4);
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background 0.1s, transform 0.1s;
+}
+
+.touchBtn:active, .touchBtn.pressed {
+    background: rgba(255,255,255,0.3);
+    transform: scale(0.95);
+}
+
+.moveBtn {
+    width: 70px;
+    height: 70px;
+    font-size: 24px;
+}
+
+.actionBtn {
+    width: 90px;
+    height: 90px;
+}
+
+#btnJump {
+    background: rgba(50,100,50,0.5);
+    border-color: rgba(100,200,100,0.6);
+    font-size: 16px;
+}
+
+#btnJump:active, #btnJump.pressed {
+    background: rgba(100,200,100,0.5);
+}
+
+.attackBtn {
+    background: rgba(150,50,50,0.5);
+    border-color: rgba(255,100,100,0.6);
+    font-size: 32px;
+}
+
+.attackBtn:active, .attackBtn.pressed {
+    background: rgba(255,100,100,0.5);
+}
+
+/* Show touch controls on touch devices */
+@media (pointer: coarse), (hover: none) {
+    #touchControls {
+        display: block;
+    }
+
+    #controls {
+        display: none;
+    }
+
+    #musicControl {
+        bottom: 200px;
+    }
+}
+
+/* Also show on smaller screens (tablets in portrait) */
+@media (max-width: 1200px) {
+    #touchControls {
+        display: block;
+    }
+
+    #controls {
+        display: none;
+    }
+}
+
+/* Responsive canvas scaling for tablets and mobile */
+@media (max-width: 1850px) {
+    #gameContainer {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    canvas {
+        max-width: 100vw;
+        max-height: calc(100vh - 200px);
+        width: auto;
+        height: auto;
+    }
+
+    body {
+        overflow: hidden;
+    }
+}
+
+/* iPad specific adjustments */
+@media (min-width: 768px) and (max-width: 1366px) {
+    .touchBtn {
+        width: 90px;
+        height: 90px;
+        font-size: 32px;
+    }
+
+    .moveBtn {
+        width: 80px;
+        height: 80px;
+    }
+
+    .actionBtn {
+        width: 100px;
+        height: 100px;
+    }
+
+    #btnJump {
+        font-size: 18px;
+    }
+
+    #touchLeft {
+        left: 30px;
+        bottom: 30px;
+    }
+
+    #touchRight {
+        right: 30px;
+        bottom: 30px;
+    }
+}
+
+/* Landscape orientation on tablets */
+@media (orientation: landscape) and (max-height: 800px) {
+    #touchControls {
+        height: 140px;
+    }
+
+    .touchBtn {
+        width: 70px;
+        height: 70px;
+        font-size: 24px;
+    }
+
+    .moveBtn {
+        width: 60px;
+        height: 60px;
+    }
+
+    .actionBtn {
+        width: 80px;
+        height: 80px;
+    }
+
+    #btnJump {
+        font-size: 14px;
+    }
+}
