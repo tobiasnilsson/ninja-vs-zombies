@@ -1084,6 +1084,284 @@ class FlyingZombie {
     }
 }
 
+// Giant Zombie Boss class - 3x taller, falls from sky, 10 HP
+class GiantZombieBoss {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 84; // 3x wider than normal zombie (28 * 3)
+        this.height = 120; // 3x taller than normal zombie (40 * 3)
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = 2;
+        this.hp = 10;
+        this.maxHp = 10;
+        this.facingRight = true;
+        this.attackCooldown = 0;
+        this.grounded = false;
+        this.isBoss = true;
+        this.spawning = true; // Falls from sky
+        this.spawnY = -150; // Start above screen
+        this.walkAnimation = 0;
+    }
+
+    update() {
+        this.walkAnimation += 0.1;
+
+        // Spawning - fall from sky
+        if (this.spawning) {
+            this.vy += GRAVITY;
+            this.y += this.vy;
+
+            // Check if landed
+            for (let plat of platforms) {
+                if (this.collidesWith(plat)) {
+                    if (this.vy > 0 && this.y + this.height - this.vy <= plat.y + 5) {
+                        this.y = plat.y - this.height;
+                        this.vy = 0;
+                        this.grounded = true;
+                        this.spawning = false;
+                        // Ground shake effect - spawn particles
+                        for (let i = 0; i < 20; i++) {
+                            particles.push(new Particle(
+                                this.x + Math.random() * this.width,
+                                this.y + this.height,
+                                '#8B4513'
+                            ));
+                        }
+                        SFX.hit();
+                    }
+                }
+            }
+
+            // Also check ground
+            if (this.y + this.height > canvas.height - 100) {
+                this.y = canvas.height - 100 - this.height;
+                this.vy = 0;
+                this.grounded = true;
+                this.spawning = false;
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle(
+                        this.x + Math.random() * this.width,
+                        this.y + this.height,
+                        '#8B4513'
+                    ));
+                }
+                SFX.hit();
+            }
+            return;
+        }
+
+        // Chase player
+        if (player && player.hp > 0) {
+            if (player.x < this.x + this.width / 2) {
+                this.vx = -this.speed;
+                this.facingRight = false;
+            } else {
+                this.vx = this.speed;
+                this.facingRight = true;
+            }
+
+            // Attack if close
+            if (this.collidesWithPlayer() && this.attackCooldown <= 0) {
+                // Check if player is jumping on top
+                const playerBottom = player.y + player.height;
+                const bossTop = this.y;
+                const playerCenterX = player.x + player.width / 2;
+                const onTop = playerBottom <= bossTop + 25 &&
+                              playerCenterX > this.x &&
+                              playerCenterX < this.x + this.width &&
+                              player.vy > 0;
+
+                if (onTop) {
+                    // Player jumped on boss!
+                    this.takeDamage(1);
+                    player.vy = -15; // Bounce player up
+                } else {
+                    // Boss attacks player
+                    SFX.zombieAttack();
+                    player.takeDamage(2); // Boss does 2 damage!
+                    this.attackCooldown = 90;
+                }
+            }
+        }
+
+        // Apply gravity
+        this.vy += GRAVITY;
+
+        // Update position
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Platform collision
+        this.grounded = false;
+        for (let plat of platforms) {
+            if (this.collidesWith(plat)) {
+                if (this.vy > 0 && this.y + this.height - this.vy <= plat.y + 5) {
+                    this.y = plat.y - this.height;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+            }
+        }
+
+        // Screen bounds
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+        if (this.y + this.height > canvas.height) {
+            this.y = canvas.height - this.height;
+            this.vy = 0;
+            this.grounded = true;
+        }
+
+        // Timers
+        if (this.attackCooldown > 0) this.attackCooldown--;
+    }
+
+    collidesWithPlayer() {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+
+    takeDamage(amount) {
+        this.hp -= amount;
+
+        // Spawn particles
+        for (let i = 0; i < 12; i++) {
+            particles.push(new Particle(
+                this.x + this.width / 2,
+                this.y + this.height / 2,
+                '#4a6b3a'
+            ));
+        }
+
+        if (this.hp <= 0) {
+            SFX.victory();
+            // Big death explosion
+            for (let i = 0; i < 30; i++) {
+                particles.push(new Particle(
+                    this.x + Math.random() * this.width,
+                    this.y + Math.random() * this.height,
+                    '#648c50'
+                ));
+            }
+            return true; // Dead
+        }
+        SFX.zombieHit();
+        return false;
+    }
+
+    collidesWith(obj) {
+        return this.x < obj.x + obj.width &&
+               this.x + this.width > obj.x &&
+               this.y < obj.y + obj.height &&
+               this.y + this.height > obj.y;
+    }
+
+    draw() {
+        const x = this.x;
+        const y = this.y;
+        const scale = 3; // 3x scale
+
+        ctx.save();
+        if (!this.facingRight) {
+            ctx.translate(x + this.width / 2, 0);
+            ctx.scale(-1, 1);
+            ctx.translate(-(x + this.width / 2), 0);
+        }
+
+        // Walking animation
+        const legOffset = Math.sin(this.walkAnimation) * 5;
+
+        // Body (torn clothes) - scaled 3x
+        ctx.fillStyle = '#503828';
+        ctx.fillRect(x + 15, y + 48, 54, 48);
+
+        // Head (green zombie skin) - scaled 3x
+        ctx.fillStyle = '#648c50';
+        ctx.fillRect(x + 21, y + 12, 42, 39);
+
+        // Darker patches
+        ctx.fillStyle = '#4a6b3a';
+        ctx.fillRect(x + 27, y + 18, 30, 27);
+
+        // Scars on face
+        ctx.fillStyle = '#3a5a2a';
+        ctx.fillRect(x + 30, y + 22, 3, 15);
+        ctx.fillRect(x + 50, y + 28, 3, 12);
+
+        // Eyes (uneven, angry) - scaled 3x
+        ctx.fillStyle = '#ff0000'; // Red angry eyes
+        ctx.fillRect(x + 27, y + 24, 12, 9);
+        ctx.fillRect(x + 45, y + 27, 12, 9);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(x + 30, y + 27, 6, 6);
+        ctx.fillRect(x + 48, y + 30, 6, 6);
+
+        // Angry eyebrows
+        ctx.fillStyle = '#3a5a2a';
+        ctx.fillRect(x + 25, y + 20, 15, 4);
+        ctx.fillRect(x + 44, y + 22, 15, 4);
+
+        // Mouth with teeth - scaled 3x
+        ctx.fillStyle = '#222';
+        ctx.fillRect(x + 33, y + 39, 18, 9);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x + 35, y + 39, 4, 6);
+        ctx.fillRect(x + 41, y + 39, 4, 6);
+        ctx.fillRect(x + 45, y + 39, 4, 6);
+
+        // Arms (reaching) - scaled 3x
+        ctx.fillStyle = '#648c50';
+        ctx.fillRect(x + 0, y + 48, 18, 36);
+        ctx.fillRect(x + 66, y + 54, 18, 30);
+
+        // Claws/hands
+        ctx.fillStyle = '#4a6b3a';
+        ctx.fillRect(x + 0, y + 80, 6, 12);
+        ctx.fillRect(x + 6, y + 82, 6, 10);
+        ctx.fillRect(x + 12, y + 80, 6, 12);
+        ctx.fillRect(x + 66, y + 80, 6, 12);
+        ctx.fillRect(x + 72, y + 82, 6, 10);
+        ctx.fillRect(x + 78, y + 80, 6, 12);
+
+        // Legs - scaled 3x with walking animation
+        ctx.fillStyle = '#3c2820';
+        ctx.fillRect(x + 18, y + 96 + legOffset, 21, 24);
+        ctx.fillRect(x + 45, y + 96 - legOffset, 21, 24);
+
+        ctx.restore();
+
+        // Draw health bar above boss
+        const barWidth = 150;
+        const barHeight = 12;
+        const barX = x + (this.width - barWidth) / 2;
+        const barY = y - 25;
+
+        // Background
+        ctx.fillStyle = '#333';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        // Health fill
+        const healthPercent = this.hp / this.maxHp;
+        ctx.fillStyle = healthPercent > 0.5 ? '#4a4' : healthPercent > 0.25 ? '#aa4' : '#a44';
+        ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+
+        // Border
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        // Boss name
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GIANT ZOMBIE', x + this.width / 2, barY - 5);
+    }
+}
+
 // Spider Boss class (Level 5) - Must jump on its back 5 times to kill
 class SpiderBoss {
     constructor(x, y) {
@@ -2189,15 +2467,14 @@ const levels = {
             { x: 1600, y: 800 },
             { x: 100, y: 550 },
             { x: 500, y: 400 },
-            { x: 900, y: 300, flying: true },
-            { x: 1400, y: 350, flying: true },
         ],
         healthPacks: [
             { x: 150, y: 610 },
             { x: 550, y: 460 },
             { x: 900, y: 610 },
             { x: 1350, y: 260 },
-        ]
+        ],
+        boss: { type: 'giant', x: 900, y: -150 }
     },
     6: {
         platforms: [
@@ -2400,7 +2677,8 @@ const levels = {
         ],
         secretBlocks: [
             { x: 1000, y: 780 }
-        ]
+        ],
+        boss: { type: 'giant', x: 900, y: -150 }
     }
 };
 
@@ -2437,6 +2715,13 @@ function initGame() {
     if (level.secretBlocks) {
         for (let point of level.secretBlocks) {
             secretBlocks.push(new SecretBlock(point.x, point.y));
+        }
+    }
+
+    // Add boss if level has one
+    if (level.boss) {
+        if (level.boss.type === 'giant') {
+            zombies.push(new GiantZombieBoss(level.boss.x, level.boss.y));
         }
     }
 
