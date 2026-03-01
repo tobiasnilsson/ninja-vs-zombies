@@ -1886,42 +1886,69 @@ class SecretBlock {
         this.height = 40;
         this.activated = false;
         this.bobOffset = Math.random() * Math.PI * 2;
+        // Star properties
+        this.starX = 0;
         this.starY = 0;
+        this.starVY = 0;
         this.starVisible = false;
-        this.starTimer = 0;
+        this.starCollected = false;
     }
 
     update() {
         // Check if player hits from below
         if (!this.activated && player) {
             const playerTop = player.y;
-            const playerCenterX = player.x + player.width / 2;
+            const playerBottom = player.y + player.height;
+            const playerLeft = player.x;
+            const playerRight = player.x + player.width;
             const blockBottom = this.y + this.height;
+            const blockTop = this.y;
+            const blockLeft = this.x;
+            const blockRight = this.x + this.width;
 
-            // Player must be moving upward and hit the bottom of the block
-            if (player.vy < 0 &&
-                playerTop <= blockBottom &&
-                playerTop >= blockBottom - 15 &&
-                playerCenterX > this.x &&
-                playerCenterX < this.x + this.width) {
+            // Check horizontal overlap
+            const horizontalOverlap = playerRight > blockLeft + 5 && playerLeft < blockRight - 5;
+
+            // Player must be moving upward and their head hits the bottom of the block
+            if (player.vy < 0 && horizontalOverlap &&
+                playerTop <= blockBottom + 5 &&
+                playerTop >= blockTop) {
 
                 this.activated = true;
                 this.starVisible = true;
+                this.starX = this.x + this.width / 2;
                 this.starY = this.y;
-                this.starTimer = 60; // Star rises for 1 second
-                player.vy = 0; // Stop upward momentum
+                this.starVY = -8; // Star bounces up
+                player.vy = 1; // Bounce player down slightly
                 SFX.secretBlock();
             }
         }
 
-        // Animate star rising
-        if (this.starVisible && this.starTimer > 0) {
-            this.starY -= 2;
-            this.starTimer--;
+        // Animate star - bounces up then falls
+        if (this.starVisible && !this.starCollected) {
+            this.starVY += 0.3; // Gravity on star
+            this.starY += this.starVY;
 
-            if (this.starTimer <= 0) {
-                // Give player berzerk mode
+            // Check if player collects the star
+            const starSize = 20;
+            if (player &&
+                player.x < this.starX + starSize &&
+                player.x + player.width > this.starX - starSize &&
+                player.y < this.starY + starSize &&
+                player.y + player.height > this.starY - starSize) {
+
+                this.starCollected = true;
+                this.starVisible = false;
                 player.activateBerzerk();
+
+                // Spawn celebration particles
+                for (let i = 0; i < 15; i++) {
+                    particles.push(new Particle(this.starX, this.starY, '#ffd700'));
+                }
+            }
+
+            // Remove star if it falls off screen
+            if (this.starY > canvas.height + 50) {
                 this.starVisible = false;
             }
         }
@@ -1929,80 +1956,85 @@ class SecretBlock {
         return false; // Never remove
     }
 
-    collidesWith(obj) {
-        return this.x < obj.x + obj.width &&
-               this.x + this.width > obj.x &&
-               this.y < obj.y + obj.height &&
-               this.y + this.height > obj.y;
-    }
-
     draw() {
         const x = this.x;
         const y = this.y;
 
         if (!this.activated) {
-            // Draw subtle hint - slightly different colored section
-            // Looks like part of a platform but with a golden/bronze tint
-            ctx.fillStyle = '#5a4a3a';
+            // Draw as a brick-like block with question mark
+            // Background
+            ctx.fillStyle = '#8B5A2B';
             ctx.fillRect(x, y, this.width, this.height);
 
-            // Subtle question mark pattern (very faint)
-            ctx.fillStyle = '#6a5a4a';
-            ctx.fillRect(x + 12, y + 8, 16, 4);
-            ctx.fillRect(x + 24, y + 12, 4, 8);
-            ctx.fillRect(x + 16, y + 18, 8, 4);
-            ctx.fillRect(x + 16, y + 26, 8, 4);
-            ctx.fillRect(x + 18, y + 32, 4, 4);
+            // Border/outline
+            ctx.strokeStyle = '#5D3A1A';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x + 1, y + 1, this.width - 2, this.height - 2);
 
-            // Slight shimmer effect
-            ctx.globalAlpha = 0.1 + Math.sin(Date.now() / 500 + this.bobOffset) * 0.05;
-            ctx.fillStyle = '#ffd700';
-            ctx.fillRect(x, y, this.width, this.height);
+            // Inner highlight
+            ctx.fillStyle = '#CD853F';
+            ctx.fillRect(x + 4, y + 4, this.width - 8, this.height - 8);
+
+            // Question mark
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('?', x + this.width / 2, y + this.height / 2);
+
+            // Shimmer effect
+            ctx.globalAlpha = 0.2 + Math.sin(Date.now() / 300 + this.bobOffset) * 0.1;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 4, y + 4, 8, 8);
             ctx.globalAlpha = 1;
         } else {
             // Empty block after activation
-            ctx.fillStyle = '#3a3a3a';
+            ctx.fillStyle = '#4a4a4a';
             ctx.fillRect(x, y, this.width, this.height);
-            ctx.strokeStyle = '#2a2a2a';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x + 2, y + 2, this.width - 4, this.height - 4);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x + 1, y + 1, this.width - 2, this.height - 2);
+            ctx.fillStyle = '#5a5a5a';
+            ctx.fillRect(x + 4, y + 4, this.width - 8, this.height - 8);
         }
 
-        // Draw rising star
-        if (this.starVisible) {
-            this.drawStar(x + this.width / 2, this.starY);
+        // Draw bouncing star
+        if (this.starVisible && !this.starCollected) {
+            this.drawStar(this.starX, this.starY);
         }
     }
 
     drawStar(cx, cy) {
         const pulse = Math.sin(Date.now() / 100) * 0.2 + 1;
-        const size = 15 * pulse;
+        const size = 18 * pulse;
 
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(Date.now() / 200);
 
-        // Glow
-        ctx.globalAlpha = 0.5;
+        // Outer glow
+        ctx.globalAlpha = 0.4;
         ctx.fillStyle = '#ffff00';
         ctx.beginPath();
         for (let i = 0; i < 5; i++) {
             const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
-            const outerX = Math.cos(angle) * size * 1.5;
-            const outerY = Math.sin(angle) * size * 1.5;
+            const outerX = Math.cos(angle) * size * 1.8;
+            const outerY = Math.sin(angle) * size * 1.8;
             if (i === 0) ctx.moveTo(outerX, outerY);
             else ctx.lineTo(outerX, outerY);
             const innerAngle = angle + Math.PI / 5;
-            const innerX = Math.cos(innerAngle) * size * 0.6;
-            const innerY = Math.sin(innerAngle) * size * 0.6;
+            const innerX = Math.cos(innerAngle) * size * 0.7;
+            const innerY = Math.sin(innerAngle) * size * 0.7;
             ctx.lineTo(innerX, innerY);
         }
         ctx.closePath();
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Star
+        // Main star
         ctx.fillStyle = '#ffd700';
+        ctx.strokeStyle = '#ff8c00';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         for (let i = 0; i < 5; i++) {
             const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
@@ -2016,6 +2048,14 @@ class SecretBlock {
             ctx.lineTo(innerX, innerY);
         }
         ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Center highlight
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -2067,6 +2107,9 @@ const levels = {
         zombies: [
             { x: 1000, y: 800 },
             { x: 1500, y: 800 },
+        ],
+        secretBlocks: [
+            { x: 600, y: 780 }
         ]
     },
     2: {
@@ -2221,7 +2264,7 @@ const levels = {
             { x: 1630, y: 660 },
         ],
         secretBlocks: [
-            { x: 680, y: 400 }
+            { x: 500, y: 780 }
         ]
     },
     8: {
@@ -2264,7 +2307,7 @@ const levels = {
             { x: 950, y: 280 },
         ],
         secretBlocks: [
-            { x: 880, y: 320 }
+            { x: 600, y: 800 }
         ]
     },
     9: {
@@ -2302,7 +2345,7 @@ const levels = {
             { x: 850, y: 660 },
         ],
         secretBlocks: [
-            { x: 830, y: 700 }
+            { x: 850, y: 780 }
         ]
     },
     10: {
@@ -2356,7 +2399,7 @@ const levels = {
             { x: 1050, y: 360 },
         ],
         secretBlocks: [
-            { x: 780, y: 580 }
+            { x: 1000, y: 780 }
         ]
     }
 };
