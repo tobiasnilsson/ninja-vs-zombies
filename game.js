@@ -456,6 +456,54 @@ const SFX = {
             osc.start(audioCtx.currentTime + i * 0.08);
             osc.stop(audioCtx.currentTime + i * 0.08 + 0.15);
         });
+    },
+
+    berzerk: () => {
+        if (!audioCtx) return;
+        // Powerful rising arpeggio with distortion feel
+        const notes = [200, 300, 400, 500, 600, 800, 1000, 1200];
+        notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            osc2.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.type = 'sawtooth';
+            osc2.type = 'square';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.05);
+            osc2.frequency.setValueAtTime(freq * 1.01, audioCtx.currentTime + i * 0.05);
+
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime + i * 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.05 + 0.2);
+
+            osc.start(audioCtx.currentTime + i * 0.05);
+            osc2.start(audioCtx.currentTime + i * 0.05);
+            osc.stop(audioCtx.currentTime + i * 0.05 + 0.2);
+            osc2.stop(audioCtx.currentTime + i * 0.05 + 0.2);
+        });
+    },
+
+    secretBlock: () => {
+        if (!audioCtx) return;
+        // Classic "block hit" sound
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime + 0.05);
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.15);
     }
 };
 
@@ -467,6 +515,7 @@ let zombies = [];
 let shurikens = [];
 let particles = [];
 let healthPacks = [];
+let secretBlocks = [];
 let currentLevel = 1;
 const maxLevel = 10;
 
@@ -498,6 +547,8 @@ class Player {
         this.invincible = false;
         this.invincibleTimer = 0;
         this.throwCooldown = 0;
+        this.berzerk = false;
+        this.berzerkTimer = 0;
     }
 
     update() {
@@ -572,6 +623,21 @@ class Player {
             this.invincibleTimer--;
             if (this.invincibleTimer <= 0) this.invincible = false;
         }
+        if (this.berzerkTimer > 0) {
+            this.berzerkTimer--;
+            if (this.berzerkTimer <= 0) {
+                this.berzerk = false;
+                this.invincible = false;
+            }
+        }
+    }
+
+    activateBerzerk() {
+        this.berzerk = true;
+        this.berzerkTimer = 300; // 5 seconds at 60fps
+        this.invincible = true;
+        this.invincibleTimer = 0; // Berzerk controls invincibility now
+        SFX.berzerk();
     }
 
     throwShuriken() {
@@ -605,11 +671,23 @@ class Player {
     }
 
     draw() {
-        // Flicker when invincible
-        if (this.invincible && Math.floor(this.invincibleTimer / 4) % 2) return;
+        // Flicker when invincible (but not during berzerk)
+        if (this.invincible && !this.berzerk && Math.floor(this.invincibleTimer / 4) % 2) return;
 
         const x = this.x;
         const y = this.y;
+
+        // Berzerk glow effect
+        if (this.berzerk) {
+            ctx.save();
+            ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 50) * 0.2;
+            ctx.fillStyle = '#ff4400';
+            ctx.beginPath();
+            ctx.ellipse(x + this.width / 2, y + this.height / 2, this.width, this.height, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
 
         ctx.save();
         if (!this.facingRight) {
@@ -1799,6 +1877,151 @@ class HealthPack {
     }
 }
 
+// SecretBlock class - Hidden block that gives Berzerk power-up when hit from below
+class SecretBlock {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 40;
+        this.height = 40;
+        this.activated = false;
+        this.bobOffset = Math.random() * Math.PI * 2;
+        this.starY = 0;
+        this.starVisible = false;
+        this.starTimer = 0;
+    }
+
+    update() {
+        // Check if player hits from below
+        if (!this.activated && player) {
+            const playerTop = player.y;
+            const playerCenterX = player.x + player.width / 2;
+            const blockBottom = this.y + this.height;
+
+            // Player must be moving upward and hit the bottom of the block
+            if (player.vy < 0 &&
+                playerTop <= blockBottom &&
+                playerTop >= blockBottom - 15 &&
+                playerCenterX > this.x &&
+                playerCenterX < this.x + this.width) {
+
+                this.activated = true;
+                this.starVisible = true;
+                this.starY = this.y;
+                this.starTimer = 60; // Star rises for 1 second
+                player.vy = 0; // Stop upward momentum
+                SFX.secretBlock();
+            }
+        }
+
+        // Animate star rising
+        if (this.starVisible && this.starTimer > 0) {
+            this.starY -= 2;
+            this.starTimer--;
+
+            if (this.starTimer <= 0) {
+                // Give player berzerk mode
+                player.activateBerzerk();
+                this.starVisible = false;
+            }
+        }
+
+        return false; // Never remove
+    }
+
+    collidesWith(obj) {
+        return this.x < obj.x + obj.width &&
+               this.x + this.width > obj.x &&
+               this.y < obj.y + obj.height &&
+               this.y + this.height > obj.y;
+    }
+
+    draw() {
+        const x = this.x;
+        const y = this.y;
+
+        if (!this.activated) {
+            // Draw subtle hint - slightly different colored section
+            // Looks like part of a platform but with a golden/bronze tint
+            ctx.fillStyle = '#5a4a3a';
+            ctx.fillRect(x, y, this.width, this.height);
+
+            // Subtle question mark pattern (very faint)
+            ctx.fillStyle = '#6a5a4a';
+            ctx.fillRect(x + 12, y + 8, 16, 4);
+            ctx.fillRect(x + 24, y + 12, 4, 8);
+            ctx.fillRect(x + 16, y + 18, 8, 4);
+            ctx.fillRect(x + 16, y + 26, 8, 4);
+            ctx.fillRect(x + 18, y + 32, 4, 4);
+
+            // Slight shimmer effect
+            ctx.globalAlpha = 0.1 + Math.sin(Date.now() / 500 + this.bobOffset) * 0.05;
+            ctx.fillStyle = '#ffd700';
+            ctx.fillRect(x, y, this.width, this.height);
+            ctx.globalAlpha = 1;
+        } else {
+            // Empty block after activation
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(x, y, this.width, this.height);
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 2, y + 2, this.width - 4, this.height - 4);
+        }
+
+        // Draw rising star
+        if (this.starVisible) {
+            this.drawStar(x + this.width / 2, this.starY);
+        }
+    }
+
+    drawStar(cx, cy) {
+        const pulse = Math.sin(Date.now() / 100) * 0.2 + 1;
+        const size = 15 * pulse;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Date.now() / 200);
+
+        // Glow
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#ffff00';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+            const outerX = Math.cos(angle) * size * 1.5;
+            const outerY = Math.sin(angle) * size * 1.5;
+            if (i === 0) ctx.moveTo(outerX, outerY);
+            else ctx.lineTo(outerX, outerY);
+            const innerAngle = angle + Math.PI / 5;
+            const innerX = Math.cos(innerAngle) * size * 0.6;
+            const innerY = Math.sin(innerAngle) * size * 0.6;
+            ctx.lineTo(innerX, innerY);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Star
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+            const outerX = Math.cos(angle) * size;
+            const outerY = Math.sin(angle) * size;
+            if (i === 0) ctx.moveTo(outerX, outerY);
+            else ctx.lineTo(outerX, outerY);
+            const innerAngle = angle + Math.PI / 5;
+            const innerX = Math.cos(innerAngle) * size * 0.4;
+            const innerY = Math.sin(innerAngle) * size * 0.4;
+            ctx.lineTo(innerX, innerY);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
 // Platform class
 class Platform {
     constructor(x, y, width, height, isGround = false) {
@@ -1949,12 +2172,12 @@ const levels = {
             new Platform(750, 200, 300, 40),
         ],
         zombies: [
-            { x: 200, y: 800 },
+            { x: 400, y: 800 },
             { x: 850, y: 800 },
             { x: 1500, y: 800 },
             { x: 550, y: 650 },
             { x: 1150, y: 650 },
-            { x: 220, y: 450 },
+            { x: 320, y: 450 },
             { x: 1470, y: 450 },
             { x: 600, y: 300, flying: true },
             { x: 1200, y: 300, flying: true },
@@ -1979,14 +2202,14 @@ const levels = {
             new Platform(850, 200, 200, 40),
         ],
         zombies: [
-            { x: 300, y: 800 },
+            { x: 400, y: 800 },
             { x: 700, y: 800 },
             { x: 1100, y: 800 },
             { x: 1500, y: 800 },
-            { x: 170, y: 600 },
+            { x: 250, y: 600 },
             { x: 920, y: 450 },
             { x: 1420, y: 450 },
-            { x: 400, y: 350, flying: true },
+            { x: 500, y: 350, flying: true },
             { x: 900, y: 250, flying: true },
             { x: 1300, y: 350, flying: true },
         ],
@@ -1996,6 +2219,9 @@ const levels = {
             { x: 680, y: 360 },
             { x: 1180, y: 360 },
             { x: 1630, y: 660 },
+        ],
+        secretBlocks: [
+            { x: 680, y: 400 }
         ]
     },
     8: {
@@ -2016,14 +2242,14 @@ const levels = {
             new Platform(1200, 320, 300, 40),
         ],
         zombies: [
-            { x: 150, y: 800 },
+            { x: 300, y: 800 },
             { x: 600, y: 800 },
             { x: 1000, y: 800 },
             { x: 1500, y: 800 },
             { x: 420, y: 620 },
             { x: 820, y: 620 },
             { x: 1220, y: 620 },
-            { x: 270, y: 420 },
+            { x: 350, y: 420 },
             { x: 1470, y: 420 },
             { x: 500, y: 200, flying: true },
             { x: 900, y: 180, flying: true },
@@ -2036,6 +2262,9 @@ const levels = {
             { x: 650, y: 480 },
             { x: 1100, y: 480 },
             { x: 950, y: 280 },
+        ],
+        secretBlocks: [
+            { x: 880, y: 320 }
         ]
     },
     9: {
@@ -2051,15 +2280,15 @@ const levels = {
             new Platform(700, 700, 400, 40),
         ],
         zombies: [
-            { x: 200, y: 800 },
-            { x: 500, y: 800 },
+            { x: 400, y: 800 },
+            { x: 600, y: 800 },
             { x: 1100, y: 800 },
             { x: 1400, y: 800 },
-            { x: 100, y: 600 },
+            { x: 180, y: 600 },
             { x: 370, y: 450 },
             { x: 1270, y: 300 },
             { x: 1570, y: 450 },
-            { x: 400, y: 300, flying: true },
+            { x: 500, y: 300, flying: true },
             { x: 800, y: 200, flying: true },
             { x: 1100, y: 250, flying: true },
             { x: 1500, y: 300, flying: true },
@@ -2071,6 +2300,9 @@ const levels = {
             { x: 1000, y: 210 },
             { x: 1300, y: 360 },
             { x: 850, y: 660 },
+        ],
+        secretBlocks: [
+            { x: 830, y: 700 }
         ]
     },
     10: {
@@ -2096,19 +2328,19 @@ const levels = {
             new Platform(950, 220, 350, 40),
         ],
         zombies: [
-            { x: 100, y: 800 },
             { x: 550, y: 800 },
             { x: 950, y: 800 },
             { x: 1400, y: 800 },
+            { x: 1600, y: 800 },
             { x: 370, y: 650 },
             { x: 770, y: 650 },
             { x: 1170, y: 650 },
-            { x: 170, y: 480 },
+            { x: 250, y: 480 },
             { x: 1070, y: 480 },
             { x: 1620, y: 480 },
-            { x: 320, y: 300 },
+            { x: 420, y: 300 },
             { x: 1370, y: 300 },
-            { x: 300, y: 200, flying: true },
+            { x: 400, y: 200, flying: true },
             { x: 700, y: 150, flying: true },
             { x: 1100, y: 150, flying: true },
             { x: 1500, y: 200, flying: true },
@@ -2122,6 +2354,9 @@ const levels = {
             { x: 1380, y: 540 },
             { x: 700, y: 360 },
             { x: 1050, y: 360 },
+        ],
+        secretBlocks: [
+            { x: 780, y: 580 }
         ]
     }
 };
@@ -2135,6 +2370,7 @@ function initGame() {
     shurikens = [];
     particles = [];
     healthPacks = [];
+    secretBlocks = [];
 
     const level = levels[currentLevel];
     platforms = level.platforms;
@@ -2151,6 +2387,13 @@ function initGame() {
     if (level.healthPacks) {
         for (let point of level.healthPacks) {
             healthPacks.push(new HealthPack(point.x, point.y));
+        }
+    }
+
+    // Add secret blocks if level has them
+    if (level.secretBlocks) {
+        for (let point of level.secretBlocks) {
+            secretBlocks.push(new SecretBlock(point.x, point.y));
         }
     }
 
@@ -2341,6 +2584,40 @@ function gameLoop() {
             }
         }
 
+        // Update secret blocks
+        for (let block of secretBlocks) {
+            block.update();
+        }
+
+        // Berzerk mode - kill zombies on contact
+        if (player.berzerk) {
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                const zombie = zombies[i];
+
+                // Check collision
+                if (player.x < zombie.x + zombie.width &&
+                    player.x + player.width > zombie.x &&
+                    player.y < zombie.y + zombie.height &&
+                    player.y + player.height > zombie.y) {
+
+                    // Kill zombie instantly (including bosses!)
+                    SFX.zombieDeath();
+
+                    // Extra particles for berzerk kills
+                    for (let j = 0; j < 15; j++) {
+                        particles.push(new Particle(
+                            zombie.x + zombie.width / 2,
+                            zombie.y + zombie.height / 2,
+                            '#ff4444'
+                        ));
+                    }
+
+                    zombies.splice(i, 1);
+                    updateUI();
+                }
+            }
+        }
+
         // Check victory
         if (zombies.length === 0) {
             gameOver(true);
@@ -2355,6 +2632,11 @@ function gameLoop() {
     // Draw game objects
     if (gameRunning || document.getElementById('gameOver').classList.contains('hidden') === false ||
         document.getElementById('victory').classList.contains('hidden') === false) {
+
+        // Draw secret blocks
+        for (let block of secretBlocks) {
+            block.draw();
+        }
 
         // Draw health packs
         for (let healthPack of healthPacks) {
@@ -2375,6 +2657,47 @@ function gameLoop() {
 
         if (player && player.hp > 0) {
             player.draw();
+        }
+
+        // Draw Berzerk overlay and indicator
+        if (player && player.berzerk) {
+            // Red overlay
+            ctx.globalAlpha = 0.15 + Math.sin(Date.now() / 100) * 0.05;
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1;
+
+            // Berzerk text indicator
+            ctx.save();
+            ctx.font = 'bold 48px Arial';
+            ctx.fillStyle = '#ff0000';
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 3;
+            ctx.textAlign = 'center';
+
+            // Pulsing effect
+            const scale = 1 + Math.sin(Date.now() / 100) * 0.1;
+            ctx.translate(canvas.width / 2, 80);
+            ctx.scale(scale, scale);
+
+            ctx.strokeText('BERZERK!', 0, 0);
+            ctx.fillText('BERZERK!', 0, 0);
+
+            // Timer bar
+            ctx.restore();
+            const timerWidth = 200;
+            const timerHeight = 10;
+            const timerX = canvas.width / 2 - timerWidth / 2;
+            const timerY = 100;
+            const timerPercent = player.berzerkTimer / 300;
+
+            ctx.fillStyle = '#333';
+            ctx.fillRect(timerX, timerY, timerWidth, timerHeight);
+            ctx.fillStyle = '#ff4400';
+            ctx.fillRect(timerX, timerY, timerWidth * timerPercent, timerHeight);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(timerX, timerY, timerWidth, timerHeight);
         }
     }
 
