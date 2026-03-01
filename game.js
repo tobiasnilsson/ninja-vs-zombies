@@ -2276,6 +2276,50 @@ function gameLoop() {
             zombie.update();
         }
 
+        // Check for player stomping on zombies
+        if (player.vy > 0) {
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                const zombie = zombies[i];
+
+                // Skip bosses - they have their own stomp logic
+                if (zombie.isBoss) continue;
+
+                // Check if player is landing on top of zombie
+                const playerBottom = player.y + player.height;
+                const playerCenterX = player.x + player.width / 2;
+                const zombieTop = zombie.y;
+                const zombieLeft = zombie.x;
+                const zombieRight = zombie.x + zombie.width;
+
+                // Player must be above zombie and horizontally overlapping
+                const landingOnTop = playerBottom >= zombieTop &&
+                                     playerBottom <= zombieTop + 20 &&
+                                     playerCenterX > zombieLeft &&
+                                     playerCenterX < zombieRight;
+
+                if (landingOnTop) {
+                    // Bounce player up
+                    player.vy = -12;
+                    player.grounded = false;
+
+                    // Kill the zombie instantly
+                    SFX.zombieDeath();
+
+                    // Spawn death particles
+                    for (let j = 0; j < 10; j++) {
+                        particles.push(new Particle(
+                            zombie.x + zombie.width / 2,
+                            zombie.y + zombie.height / 2,
+                            zombie instanceof FlyingZombie ? '#6a4a8a' : '#648c50'
+                        ));
+                    }
+
+                    zombies.splice(i, 1);
+                    updateUI();
+                }
+            }
+        }
+
         // Update shurikens
         for (let i = shurikens.length - 1; i >= 0; i--) {
             if (shurikens[i].update()) {
